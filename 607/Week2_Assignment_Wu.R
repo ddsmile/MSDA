@@ -51,7 +51,7 @@ quadFun <- function (a, b, c){
 quadFun(0, 1, 2) # raise an error, 'Error in quadFun(0, 1, 2) : a must be non-zero.'
 quadFun(1, -1, -2) # "There are two solutions: x1 = 2, x2 = -1."
 quadFun(1, 2, 1)   # "There is one solution: x = -1."
-quadFun(1, 2, 4)   "There are two complex solutions: x1 = -1+1.73205080756888i, x2 = -1-1.73205080756888i."
+quadFun(1, 2, 4)  # "There are two complex solutions: x1 = -1+1.73205080756888i, x2 = -1-1.73205080756888i."
 
 ##### 3 #####
 count = 0
