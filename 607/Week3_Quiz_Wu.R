@@ -156,7 +156,7 @@ vow <- function(charVec){
   loc <- str_locate(charVec, "[AEIOUaeiou]{1}")
   three.char <- str_sub(charVec, start = loc[,1], end = loc[,1]+2)
   for (i in 1:length(three.char)){
-      if (is.na(three.char[i]) == TRUE){
+      if (is.na(three.char[i])){
           print(sprintf("Note: The No. %d character doesn't contain vowel.", i))
       } else if (nchar(three.char[i]) < 3){
           print(sprintf("Note: The No. %d character only returns %d character(s).", i, nchar(three.char[i])))
@@ -170,7 +170,7 @@ vow(charVec)
 
 # [1] "Note: The No. 3 character only returns 1 character(s)."
 # [1] "Note: The No. 4 character doesn't contain vowel."
-# [1] "App" "ana" "ear" "ine" "eac"
+# [1] "App" "ear" "e"   NA  
 
 ##### 14 #####
 date <- data.frame(month = seq(1, 3), day = seq(4, 10, 3), year = rep(2014, 3))
