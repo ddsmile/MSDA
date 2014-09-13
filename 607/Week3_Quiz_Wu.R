@@ -151,8 +151,8 @@ concFun(char, char3)
 
 ##### 13 #####
 
-require("stringr")
 vow <- function(charVec){
+    require("stringr")
   loc <- str_locate(charVec, "[AEIOUaeiou]{1}")
   three.char <- str_sub(charVec, start = loc[,1], end = loc[,1]+2)
   for (i in 1:length(three.char)){
@@ -194,8 +194,9 @@ convert.date(string)
 # [1] "2014-02-03"
 
 ##### 16 #####
-require("stringr")
+
 extract.month <- function(date){
+    require("stringr")
   return (str_split_fixed(date, pattern = "-", n=3)[,2])
 }
 
