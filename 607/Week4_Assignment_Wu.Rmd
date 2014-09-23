@@ -1,0 +1,137 @@
+---
+title: "Week4 Assignment"
+---
+
+###**Description:**
+
+The best popular movies will be decided by rating and votes of the movies.
+Rating ranges from 1 to 10. The higher score of the rating, the better the movie is. The summary of rating shows that the 3rd quantile of rating is 7.0. Therefore, a cutoff at 7.0 and above will be defined as good movie. 
+THe popularity is defined by higher votes. However, votes range from 5 to 157,608 and increase dramatically over time. It's not fair to use one number to cutoff for the overall votes. Therefore, a cutoff votes for each year was calculated by mean of votes plus one standand deviation for that specific year. Then the year-customized cutoff were applied for the votes to filter the popular movies for the specific year.
+After the whole dataset were filtered by the two criteria above, the records were grouped by year and sorted by the total movies of year in descending order along with average rating and average votes for the year. 
+
+###**Methods:**
+
+Load packages
+
+```{r}
+require("ggplot2")
+require("dplyr")
+
+```
+
+Read in the dataset 
+
+```{r}
+movie <- read.table("movies.tab", sep="\t", header=TRUE, quote="", comment="", stringsAsFactors = FALSE)
+summary(movie)
+```
+
+Summary of rating shows the range and quantiles. Using the 3rd quantile (7.0) as cutoff rating.
+```{r}
+summary(movie$rating)
+```
+
+Summary of votes shows wide range for votes. Can not use one cutoff for all dataset.
+```{r}
+summary(movie$votes)
+```
+
+A plot of votes over the year with rating above 7.0 marked red color. The plot shows that movies with higher votes usually received higher rating in specific year. Overall votes increase dramatically over time. 
+
+```{r}
+rating.3q <- cut(movie$rating, c(7, 10))
+ggplot(data = movie, aes(x = year, y = votes)) + geom_point(aes(colour = rating.3q)) + ggtitle("Votes for each year")
+```
+
+Therefore, a series of steps were done to create a year-customized cutoff for the votes.
+
+Step 1. Create dataframe that has year and a cutoff votes for each year using mean plus 1 SD
+
+```{r}
+votes.1sd <- movie%>%
+  select(year, votes)%>%
+  group_by(year)%>%
+  summarise(votes.1sd = mean(votes) + sd(votes))
+```
+
+Step 2. Create dataframe with only 'year', 'rating' and 'votes'
+
+```{r}
+moviefilter <- movie %>%
+  select(year, rating, votes)
+```
+
+Step3. Join the two dataframes created above.
+
+```{r}
+count<- merge(moviefilter, votes.1sd)
+```
+
+Step4. Select records with rating above 7.0 and votes higher than mean + 1SD for the year. Year 1893 was excluded from the dataset since there is only one movie in that year. 
+
+```{r}
+count1 <-count%>%
+  mutate(ifcount = (votes > votes.1sd))%>%
+  filter(year!= 1893)%>%
+  select(year, rating, votes, ifcount) %>%
+  filter(rating > 7.0, ifcount == TRUE) 
+
+```
+
+List the records grouped by year and sorted by the total movies of year in descending order along with average rating and average votes for the year.
+
+```{r}
+count2 <- count1%>%
+  select(year, rating, votes)%>%
+  group_by(year) %>%
+  summarise(total = length(year), avg.rating = mean(rating), avg.votes = mean(votes))%>%
+  arrange(desc(total))
+head(count2)
+```
+
+As seen, year 2002 made the most (44) movies which has popular votes and rating higher than 7.0. 
+The movies were listed with title, year, rating and votes with rating in descending order. 
+
+```{r}
+votes.cut <- function(whichyear){
+  SD <- votes.1sd%>%filter(year == whichyear)
+  return(SD[1,2])
+}
+
+show <- movie%>%
+    select(title, year, rating, votes)%>%
+    filter(year == 2002, rating > 7.0, votes>votes.cut(2002))%>%
+    arrange(desc(rating))
+head(show)
+```
+
+###**Conclusion:**
+
+Year 2002 made the best popular movies.
+
+
+###**Discussion:**
+
+The definition of the 'best' 'popular' will change the algorithm, therefore the conclusion. Let's change the criteria of rating from 7.0 to 8.0. Data showed that year 2004 is the year made the best popular movies. This project is open for different interpretation
+
+
+```{r}
+count3 <-count%>%
+  mutate(ifcount = (votes > votes.1sd))%>%
+  filter(year!= 1893)%>%
+  select(year, rating, votes, ifcount) %>%
+  filter(rating > 8.0, ifcount == TRUE) %>%
+  select(year, rating, votes)%>%
+  group_by(year) %>%
+  summarise(total = length(year), avg.rating = mean(rating), avg.votes = mean(votes))%>%
+  arrange(desc(total))
+
+head(count3)
+
+show1 <- movie%>%
+    select(title, year, rating, votes)%>%
+    filter(year == 2004, rating > 8.0, votes>votes.cut(2004))%>%
+    arrange(desc(rating))
+
+head(show1)
+```
