@@ -1,0 +1,245 @@
+---
+title: "Project 2: Profiling a Data Set"
+output: pdf_document
+---
+
+**Background**
+
+The dataset I choose is 'flchain' dataset from the 'survival' package. From description of this dataset, it is a stratified random sample containing 1/2 of the subjects from a study of the relationship between serum free light chain (FLC) and mortality. I checked the reference
+of this dataset (A Dispenzieri, et.al,(2012) Mayo Clinic Proceedings 87:512-523.), the whole study had 15859 subjects from Olmsted County, Minnesota, redisents 50 years or older. The baseline information was obtained between March 1995 and Nov 2003. The follow-up status and cause of death were identified through Jun 2009. 
+
+Free light chains (FLCs) are the immunoglobulin light chains that circulate in serum in an unbounded state. In normal condition, FLCs presents at low levels. There are two types of FLCs produced in humans, kappa and lambda. The total level of FLCs and the ratio of kappa/lambda are used as indicators for some plasma cell disorders, such as monoclonal grammopathy of undertermined significance (MGUS), multiple myeloma and amyloidosis. Creatinine is a chemical waste molecule that is generated from muscle metabolism. The disposal of creatinine is through kidney filtration. Elevated creatinine level indicates impaired kidney function or kidney disease.
+
+It has been suggested that sum of the kappa and lambda FLC level is a significant predictor of overall survival in the popular. However, the FLC test also records the kappa/lambda ratio. There are three questions I would like to dig into for this project.
+
+1) Is there any relationship between sum FLC and kappa/lambda ratio?
+2) Can kappa/lambda ratio be an indicator for the survival?
+3) How about the creatinine? Can it be an indicator for survival?
+
+
+
+Load in required packages
+
+```{r}
+require('survival')
+require('ggplot2')
+require('dplyr')
+require('psych')
+require('gridExtra')
+```
+
+**Basic dataset structure**
+
+```{r}
+flc <- tbl_df(flchain)
+str(flc)
+```
+
+There are 7874 observations and 11 variables in this dataset. 'sex' is a factor variable with 2 levels, F (female) and M(male). 'chapter' is a factor variable with 16 levels, standing for the cause of death. 'futime' is integer. The rest of variables are all numeric, including 'age', 'sample.yr', 'kappa', 'lambda', 'flc.grp', 'creatinine', 'mgus', 'death'.
+
+```{r}
+summary(flc)
+```
+
+**summary of the dataset:**
+
+'age' has range from 50 to 101 years old 
+
+'sex' has female and male subjects
+
+'sample.yr' has year from 1995 to 2003.
+
+'kappa' and 'lambda' is the concentration of kappa and lambda portion of SFLC in the sample
+
+'flc.grp' is the FLC group for the subject, as used in the original analysis. This variable is necessary for current project.
+
+'creatinine' is the concentration of protein creatinine in the blood, ranging from 0.4 to 10.8. There are 1350 NA values.
+
+'mgus': 1 means subject had been diagnosed with MGUS when sample was taken. 0 means not diagnosed.
+
+'futime': days from enrollment (when the sample was taken) until death
+
+'death': 1 means the subject died on followup. 0 means alive at last contact date.
+
+'chapter' indicates the cause of death for the subjects who died. There are 5705 NA values for this variable. 
+
+From description document and summary of data, the variables 'mgus' and 'death' can be converted into factor variables with 2 levels. 
+
+**Transfer variables into factor variables. **
+```{r}
+flc$mgus <- as.factor(flc$mgus)
+table(flc$mgus)
+flc$death <- as.factor(flc$death)
+table(flc$death)
+```
+
+There are 5705 alive subjects at the followup. There are also 5705 NA in 'chapter' variable. The NA values in 'chapter' column probably means 'not appliable' since those subjects are alive by the end of this study.
+
+```{r}
+table.NA <- flc%>% select(death, chapter)%>%
+  filter(death == 0)
+table(table.NA$chapter, exclude = NULL)
+```
+
+**Create a new dataframe for first pair plots.**
+
+Select related columns. Create two new columns: flc.sum defined as kappa + lambda, flc.ratio defined as kappa/lambda. 
+
+```{r}
+flc1 <- flc%>%
+  select(age, sex, kappa, lambda, creatinine, mgus, futime, death)%>%
+  mutate(flc.sum=kappa+lambda, flc.ratio = kappa/lambda)
+  
+```
+
+Randomly sample 1000 observations, create pairs plot using pairs.panels()
+
+```{r}
+set.seed(0)
+flcsample <- flc1[sample(1:nrow(flc1), 1000, replace=FALSE),] 
+pairs.panels(flcsample)
+```
+
+There is a positive correlation between kappa and lambda (0.85). This result indicates that the subject tends to have elevated lambda level when he/she has elevated kappa level, and vice versa.
+
+Confirm the correlation between kappa and lambda using the whole samples
+```{r}
+ggplot(flc1, aes(x = kappa, y = lambda)) + geom_point() + geom_smooth(method = 'lm')
+cor(flchain$kappa, flchain$lambda)
+```
+
+**Weight on the importance of mgus variable**
+
+a. flc.sum vs mgus
+
+```{r}
+ggplot(flc1, aes(x=mgus, y=flc.sum)) + 
+  geom_boxplot() + 
+  coord_trans(y = "log10") +
+  ggtitle("flc.sum vs. mgus")
+```
+
+Independent 2-group t-test
+
+```{r}
+t.test(flc1$flc.sum~flc1$mgus) 
+```
+
+There is significant decreased flc.sum level in subjects diagnosed with mgus.
+
+b. flc.ratio vs. mgus
+
+```{r}
+ggplot(flc1, aes(x=mgus, y=flc.ratio)) + 
+  geom_boxplot() + 
+  coord_trans(y = "log10") +
+  ggtitle("flc.ratio vs. mgus")
+t.test(flc1$flc.ratio~flc1$mgus)
+```
+
+There is a significant elevated on flc.ratio in subjects diagnosed with mgus.
+
+
+
+**Gender difference of flc.sum and flc.ratio**
+
+```{r}
+p1 <- ggplot(flc1, aes(x=mgus, y=flc.sum, colour=sex)) + 
+  geom_boxplot() + 
+  coord_trans(y = "log10") +
+  ggtitle("flc.sum vs. mgus")
+p2 <- ggplot(flc1, aes(x=mgus, y=flc.ratio, colour=sex)) + 
+  geom_boxplot() + 
+  coord_trans(y = "log10") +
+  ggtitle("flc.ratio vs. mgus")
+grid.arrange(p1, p2, ncol=2)
+```
+
+Male subjects have slightly higher mean in both flc.sum and flc.ratio despite of mgus or not. 
+
+Since diagnosis of mgus significantly affects the flc.sum and flc.ratio and the subject of this project will focus on the survival, it's reasonable to exclude the subjects already diagnosed with mgus (mgus = 1).
+
+**Further clean the data for current project**
+
+```{r}
+flc2 <- flc1%>%
+  filter(mgus == 0)%>%
+  select(age, sex, creatinine, futime, flc.sum, flc.ratio)
+```
+
+**Question 1, Is there any relationship between sum FLC and kappa/lambda ratio?**
+```{r}
+ggplot(flc2, aes(x=flc.sum, y=flc.ratio)) + geom_point(alpha = 0.5) + coord_trans(x = "log10")
+cor(flc2$flc.sum, flc2$flc.ratio)
+```
+There is no correlation between flc.sum and flc.ratio
+
+
+**Question 2, Can kappa/lambda ratio be an indicator for the survival?**
+
+Find relationship between futime and flc.sum/flc.ratio
+```{r}
+p3 <- ggplot(flc2, aes(x = futime, y = flc.sum)) + 
+  geom_point(alpha = 0.3) + 
+  coord_trans(y = "log10") + 
+  geom_smooth(method='lm') +
+  ggtitle("flc.sum vs. futime") +
+  theme(legend.position="none")
+p4 <- ggplot(flc2, aes(x = futime, y = flc.ratio)) + 
+  geom_point(alpha = 0.3) + 
+  coord_trans(y = "log10") + 
+  geom_smooth(method='lm') +
+  ggtitle("flc.ratio vs. futime") +
+  theme(legend.position="none")
+grid.arrange(p3, p4, ncol=2)
+```
+
+Alternative way. Instead of showing data with log axis, data were cut into deciles and shown as boxplot.
+```{r}
+flc2$sum.decile <- cut(flc2$flc.sum, 
+                       breaks=quantile(flc1$flc.sum, prob = seq(0, 1, length = 11), type = 5), 
+                       include.lowest=TRUE)
+p5 <- ggplot(flc2, aes(x=sum.decile, y=futime)) + 
+  geom_boxplot() + 
+  xlab("Sum FLC")
+
+flc2$ratio.decile <- cut(flc2$flc.ratio, 
+                         breaks=quantile(flc1$flc.ratio, prob = seq(0, 1, length = 11), type = 5), 
+                         include.lowest=TRUE)
+p6 <- ggplot(flc2, aes(x=ratio.decile, y=futime)) + 
+  geom_boxplot() + 
+  xlab("Ratio FLC")
+
+grid.arrange(p5, p6, ncol=2)
+```
+This chart also shows that lower of both flc.sum and flc.ratio indicates longer futime.
+
+**Question 3, How about the creatinine? Can it be an indicator for survival?**
+
+There are 1350 NA values in creatinine variable. These NA value were excluded for analysis.
+
+```{r}
+flc3 <- flc2 %>%
+  filter(complete.cases(creatinine))
+
+p7 <- ggplot(flc3, aes(x = futime, y = creatinine)) + 
+  geom_point(alpha = 0.3) + 
+  geom_smooth(method ='lm') +
+  coord_trans(y = "log10")
+  ggtitle("creatinine vs. futime") 
+```
+Alternative method
+```{r}
+flc3$creatinine.quant <- cut(flc3$creatinine, 
+                             breaks=quantile(flc3$creatinine, prob = seq(0, 1, 0.25), type = 7), 
+                             include.lowest=TRUE)
+p8 <- ggplot(flc3, aes(x=creatinine.quant, y=futime)) + 
+  geom_boxplot() +
+  xlab('creatinine')
+grid.arrange(p7, p8, ncol=2)
+```
+
+Both figures show that creatinine could be an indicator for survival. The elevated 'creatinine' implies shorter 'futime'. This makes sense because creatinine is an indicator for kidney malfunction.
+
+**Conclusion:**
+As reported in the literature, the sum of kappa and lambda FLC level is a significant predictor of overall survival in the general population. This project has shown that the kappa/lambda ratio could be a predictor of survival too. Although creatinine could be an indicator, 17% of value is NA. The interpretation of these missing value is unclear. Therefore, further study is needed to draw the conclusion about creatinine.
